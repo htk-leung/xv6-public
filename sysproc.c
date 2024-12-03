@@ -89,3 +89,52 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// get nice <pid> <value> or nice <value>
+// return PID and old nice value
+int
+sys_changenice(void)
+{
+  int pid; 
+  if(argint(0, &pid) < 0)
+    return -1;
+
+  int val; 
+  if(argint(1, &val)< 0)
+    return -1;
+
+  return changenice(pid, val);
+}
+
+int sys_getnice(void)
+{
+    // cprintf("Inside sys_getnice\n");
+    int pid;
+    if (argint(0, &pid) < 0)
+        return -1;
+    return getnice(pid);
+}
+
+int
+sys_printtable(void)
+{
+  return printtable();
+}
+
+int 
+sys_straceon(void)
+{
+  int pid;
+  if (argint(0, &pid) < 0)
+      return -1;
+  return straceon(pid);
+}
+
+int 
+sys_straceoff(void)
+{
+  int pid;
+  if (argint(0, &pid) < 0)
+      return -1;
+  return straceoff(pid);
+}

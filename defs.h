@@ -113,6 +113,7 @@ struct proc*    myproc();
 void            pinit(void);
 void            procdump(void);
 void            scheduler(void) __attribute__((noreturn));
+void            scheduler1(void) __attribute__((noreturn));
 void            sched(void);
 void            setproc(struct proc*);
 void            sleep(void*, struct spinlock*);
@@ -120,6 +121,11 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
+int             changenice(int, int);
+int             getnice(int);
+int             printtable(void);
+int             straceon(int);
+int             straceoff(int);
 
 // swtch.S
 void            swtch(struct context**, struct context*);

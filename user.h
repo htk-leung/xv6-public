@@ -22,7 +22,11 @@ int dup(int);
 int getpid(void);
 char* sbrk(int);
 int sleep(int);
-int uptime(void);
+int changenice(int, int);
+int getnice(int);
+int printtable(void);
+int straceon(void);
+int straceoff(void);
 
 // ulib.c
 int stat(const char*, struct stat*);

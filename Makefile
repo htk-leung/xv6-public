@@ -82,6 +82,14 @@ ASFLAGS = -m32 -gdwarf-2 -Wa,-divide
 # FreeBSD ld wants ``elf_i386_fbsd''
 LDFLAGS += -m $(shell $(LD) -V | grep elf_i386 2>/dev/null | head -n 1)
 
+# To select scheduler
+# Default scheduler : Priority. Usage : make qemu-nox | make qemu-nox SCHEDULER=PR
+SCHEDULER ?= PR
+# Compile time setting : make qemu-nox SCHEDULER=RR
+ifeq ($(SCHEDULER),RR)
+    CFLAGS += -DRR
+endif
+
 # Disable PIE when possible (for Ubuntu 16.10 toolchain)
 ifneq ($(shell $(CC) -dumpspecs 2>/dev/null | grep -e '[^f]no-pie'),)
 CFLAGS += -fno-pie -no-pie
@@ -157,7 +165,7 @@ _forktest: forktest.o $(ULIB)
 	$(OBJDUMP) -S _forktest > forktest.asm
 
 mkfs: mkfs.c fs.h
-	gcc -Werror -Wall -o mkfs mkfs.c
+	gcc -Werror -Wall -o mkfs mkfs.c 
 
 # Prevent deletion of intermediate files, e.g. cat.o, after first build, so
 # that disk image changes after first build are persistent until clean.  More
@@ -181,10 +189,21 @@ UPROGS=\
 	_usertests\
 	_wc\
 	_zombie\
+	_hello\
+	_test\
+	_test1\
+	_preprocess\
+	_test_nice_1\
+	_printtable\
+	_test4\
+	_test5\
+	_nice\
+	_strace\
 
-fs.img: mkfs README $(UPROGS)
-	./mkfs fs.img README $(UPROGS)
-
+fs.img: mkfs README data.txt $(UPROGS)
+	./mkfs fs.img README data.txt $(UPROGS)
+	
+	
 -include *.d
 
 clean: 

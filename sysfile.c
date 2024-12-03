@@ -72,9 +72,13 @@ sys_read(void)
   struct file *f;
   int n;
   char *p;
-
-  if(argfd(0, 0, &f) < 0 || argint(2, &n) < 0 || argptr(1, &p, n) < 0)
+  if(argfd(0, 0, &f) < 0 || argint(2, &n) < 0 || argptr(1, &p, n) < 0) {
+    if (myproc()->strace)
+      cprintf("TRACE: pid = - | command_name = read | syscall = read | return value = -1\n");
     return -1;
+  }
+  if (myproc()->strace)
+    cprintf("TRACE: pid = - | command_name = read | syscall = read | return value = fileread\n");
   return fileread(f, p, n);
 }
 
