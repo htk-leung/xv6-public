@@ -191,7 +191,7 @@ void syscall(void)
   int num;
   struct proc *proc = myproc();
 
-  char *sys_call_trace;
+  // char *sys_call_trace;
   num = proc->tf->eax;
 
   if (num > 0 && num < NELEM(syscalls) && syscalls[num]) // Will also need to verify that syscalls_strings[num] is valid.
