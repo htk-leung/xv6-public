@@ -685,6 +685,6 @@ int check_strace()
 }
 int set_proc_strace()
 {
-  ptable.proc->strace = 1;
+  myproc()->strace = 1;
   return 0;
 }

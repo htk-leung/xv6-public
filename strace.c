@@ -33,5 +33,7 @@ int main(int argc, char *argv[])
         }
         wait();
     }
+    else if (strcmp(argv[1], "dump") == 0)
+        strace_dump();
     exit();
 }
