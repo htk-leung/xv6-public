@@ -14,6 +14,8 @@ struct {
 
 static struct proc *initproc;
 
+int trace_off = 0; // 0 = off, 1 = on
+
 int nextpid = 1;
 extern void forkret(void);
 extern void trapret(void);
@@ -667,40 +669,22 @@ printtable() {
   return 24;
 }
 
-int 
-straceon(int pid)
+int straceon()
 {
-    struct proc *p;
-    acquire(&ptable.lock);
-    for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    {
-        if (p->pid == pid)
-        {
-            p->strace = 1;
-            release(&ptable.lock);
-            return p->strace;
-        }
-    }
-    cprintf("Did not find pid %d\n", pid);
-    release(&ptable.lock);
-    return -1;
+  trace_off = 1;
+  return 0;
 }
-
-int 
-straceoff(int pid)
+int straceoff()
 {
-    struct proc *p;
-    acquire(&ptable.lock);
-    for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    {
-        if (p->pid == pid)
-        {
-            p->strace = 0;
-            release(&ptable.lock);
-            return p->strace;
-        }
-    }
-    cprintf("Did not find pid %d\n", pid);
-    release(&ptable.lock);
-    return -1;
+  trace_off = 0;
+  return 0;
+}
+int check_strace()
+{
+  return trace_off;
+}
+int set_proc_strace()
+{
+  ptable.proc->strace = 1;
+  return 0;
 }

@@ -121,20 +121,19 @@ sys_printtable(void)
   return printtable();
 }
 
-int 
-sys_straceon(void)
+int sys_straceon(void)
 {
-  int pid;
-  if (argint(0, &pid) < 0)
-      return -1;
-  return straceon(pid);
+  return straceon();
 }
-
-int 
-sys_straceoff(void)
+int sys_straceoff(void)
 {
-  int pid;
-  if (argint(0, &pid) < 0)
-      return -1;
-  return straceoff(pid);
+  return straceoff();
+}
+int sys_check_strace()
+{
+  return check_strace();
+}
+int sys_set_proc_strace()
+{
+  return set_proc_strace();
 }

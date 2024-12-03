@@ -165,7 +165,15 @@ main(void)
       continue;
     }
     if(fork1() == 0)
+    {
+      // Check if strace is on
+      if (check_strace() != 0)
+        // Set strace to on for process
+        set_proc_strace();
+        
       runcmd(parsecmd(buf));
+    }
+      
     wait();
   }
   exit();
