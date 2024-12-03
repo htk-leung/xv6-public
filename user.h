@@ -29,6 +29,7 @@ int straceon(void);
 int straceoff(void);
 int check_strace(void); /*0 = off, 1 = on*/
 int set_proc_strace(void);
+int strace_dump(void);
 
 // ulib.c
 int stat(const char*, struct stat*);

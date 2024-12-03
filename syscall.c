@@ -61,7 +61,7 @@ argptr(int n, char **pp, int size)
   int i;
   struct proc *curproc = myproc();
  
-  if(argint(n, &i) < 0) // now value
+  if(argint(n, &i) < 0)
     return -1;
   if(size < 0 || (uint)i >= curproc->sz || (uint)i+size > curproc->sz)
     return -1;
@@ -81,6 +81,74 @@ argstr(int n, char **pp)
     return -1;
   return fetchstr(addr, pp);
 }
+
+// Adds int to string.
+int unsignedIntToString(int n, char *str)
+{
+  int i = 0, j, l;
+  if (n == 0)
+  {
+    str[i] = '0';
+    return 1;
+  }
+  char reversed[10];
+  while (n > 0)
+  {
+    reversed[i++] = (n % 10) + '0';
+    n = n / 10;
+  }
+  l = i;
+  reversed[i] = 0;
+  for (j = 0; j < l; j++)
+    str[j] = reversed[--i];
+  str[j] = 0;
+  return l;
+}
+// string formatter loosely based on cprintf
+void strFormatter(char *fmt, char *result, int pid, char *cmd, char *syscall, int returnVal)
+{
+  int i, c, l = 0, j = 0;
+  char *s;
+  if (fmt == 0)
+    panic("null fmt in snprintf");
+
+  for (i = 0; (c = fmt[i] & 0xff) != 0; i++)
+  {
+    if (j > 3 || (returnVal == -1 && j > 2))
+      break;
+    if (c != '%')
+    {
+      result[l++] = (c);
+      continue;
+    }
+    c = fmt[++i] & 0xff;
+    switch (j)
+    {
+    case 0:
+      l += unsignedIntToString(pid, &(result[l]));
+      break;
+    case 1:
+      s = cmd;
+      for (; *s; s++)
+        result[l++] = *s;
+      break;
+    case 2:
+      s = syscall;
+      for (; *s; s++)
+        result[l++] = *s;
+      break;
+    case 3:
+      l += unsignedIntToString(returnVal, &(result[l]));
+      break;
+    }
+    j++;
+  }
+  result[l] = '\0';
+}
+// Create array in kernel memory to store system call log
+char system_call_log[X][TRACE_LOG_BUFFER_SIZE];
+// Create circular index for system call log
+unsigned int next_rc_sys_call_index = 0;
 
 extern int sys_chdir(void);
 extern int sys_close(void);
@@ -105,41 +173,44 @@ extern int sys_write(void);
 extern int sys_uptime(void);
 extern int sys_changenice(void);
 extern int sys_getnice(void);
+extern int sys_lock(void);
+extern int sys_resourcerelease(void);
+extern int sys_lockstate(void);
+extern int sys_pilock(void);
 extern int sys_printtable(void);
 extern int sys_straceon(void);
 extern int sys_straceoff(void);
 extern int sys_check_strace(void);
 extern int sys_set_proc_strace(void);
+extern int sys_strace_dump(void);
 
 static int (*syscalls[])(void) = {
-[SYS_fork]    sys_fork,
-[SYS_exit]    sys_exit,
-[SYS_wait]    sys_wait,
-[SYS_pipe]    sys_pipe,
-[SYS_read]    sys_read,
-[SYS_kill]    sys_kill,
-[SYS_exec]    sys_exec,
-[SYS_fstat]   sys_fstat,
-[SYS_chdir]   sys_chdir,
-[SYS_dup]     sys_dup,
-[SYS_getpid]  sys_getpid,
-[SYS_sbrk]    sys_sbrk,
-[SYS_sleep]   sys_sleep,
-[SYS_uptime]  sys_uptime,
-[SYS_open]    sys_open,
-[SYS_write]   sys_write,
-[SYS_mknod]   sys_mknod,
-[SYS_unlink]  sys_unlink,
-[SYS_link]    sys_link,
-[SYS_mkdir]   sys_mkdir,
-[SYS_close]   sys_close,
-[SYS_changenice] sys_changenice,
-[SYS_getnice] sys_getnice,
-[SYS_printtable]  sys_printtable,
-[SYS_straceon]  sys_straceon,
-[SYS_straceoff]  sys_straceoff,
-[SYS_check_strace] sys_check_strace,
-[SYS_set_proc_strace] sys_set_proc_strace
+    [SYS_fork] sys_fork,
+    [SYS_exit] sys_exit,
+    [SYS_wait] sys_wait,
+    [SYS_pipe] sys_pipe,
+    [SYS_read] sys_read,
+    [SYS_kill] sys_kill,
+    [SYS_exec] sys_exec,
+    [SYS_fstat] sys_fstat,
+    [SYS_chdir] sys_chdir,
+    [SYS_dup] sys_dup,
+    [SYS_getpid] sys_getpid,
+    [SYS_sbrk] sys_sbrk,
+    [SYS_sleep] sys_sleep,
+    [SYS_uptime] sys_uptime,
+    [SYS_open] sys_open,
+    [SYS_write] sys_write,
+    [SYS_mknod] sys_mknod,
+    [SYS_unlink] sys_unlink,
+    [SYS_link] sys_link,
+    [SYS_mkdir] sys_mkdir,
+    [SYS_close] sys_close,
+    [SYS_straceon] sys_straceon,
+    [SYS_straceoff] sys_straceoff,
+    [SYS_check_strace] sys_check_strace,
+    [SYS_set_proc_strace] sys_set_proc_strace,
+    [SYS_strace_dump] sys_strace_dump,
 };
 
 static char *syscalls_strings[] = {
@@ -168,58 +239,90 @@ static char *syscalls_strings[] = {
     [SYS_straceoff] = "trace_off",
     [SYS_check_strace] = "check_strace",
     [SYS_set_proc_strace] = "set_proc_strace",
+    [SYS_strace_dump] = "strace_dump",
 };
 
-// void
-// syscall(void)
-// {
-//   int num;
-//   struct proc *curproc = myproc();
-
-//   num = curproc->tf->eax;
-//   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
-//     curproc->tf->eax = syscalls[num]();
-//   } else {
-//     cprintf("%d %s: unknown sys call %d\n",
-//             curproc->pid, curproc->name, num);
-//     curproc->tf->eax = -1;
-//   }
-// }
-
-void syscall(void)
+void init_sys_call_log()
 {
-  int num;
-  struct proc *proc = myproc();
+  int i;
+  for (i = 0; i < X; i++)
+    *system_call_log[i] = 0;
+}
 
-  // char *sys_call_trace;
-  num = proc->tf->eax;
-
-  if (num > 0 && num < NELEM(syscalls) && syscalls[num]) // Will also need to verify that syscalls_strings[num] is valid.
+int strace_dump()
+{
+  int i;
+  // Check if X system calls haven't been made yet
+  if (system_call_log[next_rc_sys_call_index] == 0)
   {
-
-    // Special trace line for exit system call
-    if (proc->strace != 0 && num == SYS_exit)
-    {
-      // *sys_call_trace = "TRACE: pid = %d | command_name = %s | syscall = %s\n", proc->pid, proc->name, syscalls_strings[num];
-      if (N > 0) // avoid division by 0
-                 // recent_system_calls[next_rc_sys_call_index++ % N] = sys_call_trace;
-        cprintf("TRACE: pid = %d | command_name = %s | syscall = %s\n", proc->pid, proc->name, syscalls_strings[num]);
-      itoa(5);
-    }
-    proc->tf->eax = syscalls[num]();
-    // Standard trace line
-    if (proc->strace != 0)
-    {
-      // *sys_call_trace = "TRACE: pid = %d | command_name = %s | syscall = %s | return value = %d\n", proc->pid, proc->name, syscalls_strings[num], proc->tf->eax;
-      if (N > 0) // avoid division by 0
-                 // recent_system_calls[next_rc_sys_call_index++ % N] = sys_call_trace;
-        cprintf("TRACE: pid = %d | command_name = %s | syscall = %s | return value = %d\n", proc->pid, proc->name, syscalls_strings[num], proc->tf->eax);
-    }
+    cprintf("In strace_dump if loop\n");
+    for (i = 0; i < next_rc_sys_call_index; i++)
+      cprintf("trace log %d = %s\n", i, system_call_log[i]);
   }
   else
   {
+    cprintf("In strace_dump else loop\n");
+    // Print first section of circular array
+    for (i = next_rc_sys_call_index % X; i < X; i++)
+      cprintf("trace log %d = %s\n", i, system_call_log[i]);
+    // Print second section of circular array
+    for (i = 0; i < next_rc_sys_call_index % X; i++)
+      cprintf("trace log %d = %s\n", i, system_call_log[i]);
+  }
+  return 0;
+}
+
+int sys_strace_dump()
+{
+  return strace_dump();
+}
+
+void
+syscall(void)
+{
+  int i, num, init_flag = 0;
+  char init_str[5] = "init";
+  struct proc *curproc = myproc();
+  // Initialize system calls log during first system call made y init
+  if (next_rc_sys_call_index == 0)
+  {
+    for (i = 0; i < 5; i++)
+      if (curproc->name[i] != init_str[i])
+        init_flag = 1;
+    if (init_flag)
+      init_sys_call_log();
+  }
+  num = curproc->tf->eax;
+  // Will also need to verify that syscalls_strings[num] is valid.
+  if(num > 0 && num < NELEM(syscalls) && syscalls[num]) 
+  {
+    // Special trace line for exit and exec system calls
+    if (num == SYS_exit || num == SYS_exec)
+    {
+      if (X > 0) // avoid division by 0
+        strFormatter("TRACE: pid = %d | command_name = %s | syscall = %s\n", system_call_log[next_rc_sys_call_index++ % X],
+                     curproc->pid, curproc->name, syscalls_strings[num], -1);
+      if (curproc->strace != 0)
+        cprintf("TRACE: pid = %d | command_name = %s | syscall = %s\n", curproc->pid, curproc->name, syscalls_strings[num]);
+    }
+    curproc->tf->eax = syscalls[num]();
+    // Standard trace line
+    if (num != SYS_exit && num != SYS_exec)
+    {
+      if (X > 0) // avoid division by 0
+        strFormatter("TRACE: pid = %d | command_name = %s | syscall = %s | return value = %d\n", system_call_log[next_rc_sys_call_index++ % X],
+                     curproc->pid, curproc->name, syscalls_strings[num], curproc->tf->eax);
+      if (curproc->strace != 0)
+      {
+        cprintf("TRACE: pid = %d | command_name = %s | syscall = %s | return value = %d\n",
+                curproc->pid, curproc->name, syscalls_strings[num], curproc->tf->eax);
+      }
+    }
+  } 
+  else 
+  {
     cprintf("%d %s: unknown sys call %d\n",
-            proc->pid, proc->name, num);
-    proc->tf->eax = -1;
+            curproc->pid, curproc->name, num);
+    curproc->tf->eax = -1;
   }
 }

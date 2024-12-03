@@ -191,13 +191,6 @@ UPROGS=\
 	_zombie\
 	_hello\
 	_test\
-	_test1\
-	_preprocess\
-	_test_nice_1\
-	_printtable\
-	_test4\
-	_test5\
-	_nice\
 	_strace\
 
 fs.img: mkfs README data.txt $(UPROGS)

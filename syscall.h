@@ -27,8 +27,9 @@
 #define SYS_straceoff   26
 #define SYS_check_strace 27
 #define SYS_set_proc_strace 28
+#define SYS_strace_dump 29
 
 // Array size of stored system call events
-#define N 10
+#define X 10
 // Size of buffer for each stored system call event
 #define TRACE_LOG_BUFFER_SIZE 256
