@@ -20,16 +20,9 @@
 #define SYS_link        19
 #define SYS_mkdir       20
 #define SYS_close       21
-#define SYS_changenice  22
-#define SYS_getnice     23
-#define SYS_printtable  24
-#define SYS_straceon    25
-#define SYS_straceoff   26
-#define SYS_check_strace 27
-#define SYS_set_proc_strace 28
-#define SYS_strace_dump 29
-
-// Array size of stored system call events
-#define X 10
-// Size of buffer for each stored system call event
-#define TRACE_LOG_BUFFER_SIZE 256
+#define SYS_straceon    22
+#define SYS_straceoff   23
+#define SYS_check_strace 24
+#define SYS_set_proc_strace 25
+#define SYS_strace_dump 26
+#define SYS_proc_strace_dump 27

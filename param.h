@@ -11,4 +11,7 @@
 #define LOGSIZE      (MAXOPBLOCKS*3)  // max data blocks in on-disk log
 #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
 #define FSSIZE       1000  // size of file system in blocks
-
+// Array size of stored system call events
+#define X 10
+// Size of buffer for each stored system call event
+#define MAX_TRACE_ENTRY_SIZE 256
