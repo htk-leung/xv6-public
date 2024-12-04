@@ -90,8 +90,10 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
-  p->nice = 3;
   p->strace = 0;
+  p->sys_call_index = 0;
+  p->sys_call_index = 0;
+  memset(p->system_call_log, 0, X);
 
   release(&ptable.lock);
 
@@ -192,9 +194,6 @@ fork(void)
   if((np = allocproc()) == 0){
     return -1;
   }
-
-  // inherit nice value
-  np->nice = curproc->nice;
 
   // Copy process state from proc.
   if((np->pgdir = copyuvm(curproc->pgdir, curproc->sz)) == 0){
@@ -342,8 +341,6 @@ scheduler(void)
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
 
-    #ifdef RR
-
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
         continue;
@@ -362,46 +359,6 @@ scheduler(void)
       // It should have changed its p->state before coming back.
       c->proc = 0;
     }
-
-    #else
-
-    // per instructions,
-    int i;
-    for (i = 1; i <= 5; i++)
-    {
-        // Loop through ptable looking for a process with a nice value less than or equal to i
-        for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-        {
-            if (p->state != RUNNABLE)
-                continue;
-            if (p->nice > i)
-                continue;
-            // Switch to chosen process.  It is the process's job
-            // to release ptable.lock and then reacquire it
-            // before jumping back to us.
-                        
-            // lower program priority after it's chosen
-            // if(p->nice < 5)
-            //   p->nice++;
-            // else 
-            //   p->nice = 1;
-
-            c->proc = p;
-            switchuvm(p);
-            p->state = RUNNING;
-            
-            // When returning for scheduler, we will start with high priority processes again.
-            i = 1;
-
-            swtch(&(c->scheduler), p->context);
-            switchkvm();
-
-            // Process is done running for now.
-            // It should have changed its p->state before coming back.
-            c->proc = 0;
-        }
-    }
-    #endif
 
     release(&ptable.lock);
   }
@@ -585,90 +542,6 @@ procdump(void)
   }
 }
 
-int
-changenice(int pid, int val)
-{
-  // update process nice number
-  struct proc *p;
-  acquire(&ptable.lock);
-
-  int oldval = -1;
-
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->pid == pid)
-      {
-        oldval = p->nice;
-        p->nice = val;
-        //cprintf("pid : %d\tnewpriority : %d\n", pid, p->nice);
-        release(&ptable.lock);
-        return oldval;
-      }
-  }
-  cprintf("Did not find pid %d\n", pid);
-  release(&ptable.lock);
-  return -1;
-}
-
-int 
-getnice(int pid)
-{
-    // cprintf("Inside getnice\n");
-    struct proc *p;
-    acquire(&ptable.lock);
-    for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    {
-        if (p->pid == pid)
-        {
-            // cprintf("Found pid %d\n", pid);
-            release(&ptable.lock);
-            return p->nice;
-        }
-    }
-    cprintf("Did not find pid %d\n", pid);
-    release(&ptable.lock);
-    return -1;
-}
-
-int 
-printtable() {
-  // create struct proc p
-  struct proc *p;
-
-  // enable interrupt
-  // sti();
-
-  // get lock
-  acquire(&ptable.lock);
-
-  cprintf("PID\tNICE\tSTATE\tCORE\n");
-
-  // loop over table printing each item
-  for (p = ptable.proc; p < &ptable.proc[10]; p++)
-  {// UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE
-
-    if(p->state == UNUSED)
-      cprintf("%d\t%d\tUNUSED\n", p->pid, p->nice);
-    else if(p->state == EMBRYO)
-      cprintf("%d\t%d\tEMBRYO\n", p->pid, p->nice);
-    else if(p->state == SLEEPING)
-      cprintf("%d\t%d\tSLEEPING\n", p->pid, p->nice);
-    else if(p->state == RUNNABLE)
-      cprintf("%d\t%d\tRUNNABLE\n", p->pid, p->nice);
-    else if(p->state == RUNNING)
-      cprintf("%d\t%d\tRUNNING\n", p->pid, p->nice);
-    else if(p->state == ZOMBIE)
-      cprintf("%d\t%d\tZOMBIE\n", p->pid, p->nice);
-    else
-      panic("Undefined State");
-  }
-
-  // release lock
-  release(&ptable.lock);
-
-  // what to return??
-  return 24;
-}
-
 int straceon()
 {
   trace_off = 1;
@@ -687,4 +560,35 @@ int set_proc_strace()
 {
   myproc()->strace = 1;
   return 0;
+}
+int proc_strace_dump(int pid)
+{
+  int i;
+  struct proc *p;
+
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+  {
+    if(p->pid == pid)
+    {
+      if (p->system_call_log[p->sys_call_index % 10][0] == 0)
+      {
+        for (i = 0; i < p->sys_call_index; i++)
+          cprintf("trace log %d = %s\n", i, p->system_call_log[i]);
+      }
+      else
+      {
+        // Print first section of circular array
+        for (i = p->sys_call_index % X; i < X; i++)
+          cprintf("trace log %d = %s\n", i, p->system_call_log[i]);
+        // Print second section of circular array
+        for (i = 0; i < p->sys_call_index % X; i++)
+          cprintf("trace log %d = %s\n", i, p->system_call_log[i]);
+      }
+      release(&ptable.lock);
+      return 0;
+    }
+  }
+  release(&ptable.lock);
+  return -1;
 }
