@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "fcntl.h": "c",
-        "memory": "c"
+        "memory": "c",
+        "syscall.h": "c",
+        "spinlock.h": "c"
     }
 }

@@ -12,3 +12,4 @@
 #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
 #define FSSIZE       1000  // size of file system in blocks
 
+#define MAXSCALL     34 // 1 bigger than number of calls for direct translation between call# and array index

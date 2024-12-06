@@ -145,6 +145,12 @@ void strFormatter(char *fmt, char *result, int pid, char *cmd, char *syscall, in
   }
   result[l] = '\0';
 }
+
+// Array size of stored system call events
+#define X 10
+// Size of buffer for each stored system call event
+#define TRACE_LOG_BUFFER_SIZE 256
+
 // Create array in kernel memory to store system call log
 char system_call_log[X][TRACE_LOG_BUFFER_SIZE];
 // Create circular index for system call log
@@ -183,6 +189,10 @@ extern int sys_straceoff(void);
 extern int sys_check_strace(void);
 extern int sys_set_proc_strace(void);
 extern int sys_strace_dump(void);
+extern int sys_strace_selon(void);
+extern int sys_strace_seloff(void);
+extern int sys_strace_selprint(void);
+extern int sys_strace_selstatus(void);
 
 static int (*syscalls[])(void) = {
     [SYS_fork] sys_fork,
@@ -211,6 +221,10 @@ static int (*syscalls[])(void) = {
     [SYS_check_strace] sys_check_strace,
     [SYS_set_proc_strace] sys_set_proc_strace,
     [SYS_strace_dump] sys_strace_dump,
+    [SYS_strace_selon] sys_strace_selon,
+    [SYS_strace_seloff] sys_strace_seloff,
+    [SYS_strace_selprint] = sys_strace_selprint,
+    [SYS_strace_selstatus] = sys_strace_selstatus
 };
 
 static char *syscalls_strings[] = {
@@ -240,6 +254,10 @@ static char *syscalls_strings[] = {
     [SYS_check_strace] = "check_strace",
     [SYS_set_proc_strace] = "set_proc_strace",
     [SYS_strace_dump] = "strace_dump",
+    [SYS_strace_selon] = "strace_selon",
+    [SYS_strace_seloff] = "strace_seloff",
+    [SYS_strace_selprint] = "strace_selprint",
+    [SYS_strace_selstatus] = "strace_selstatus"
 };
 
 void init_sys_call_log()
@@ -293,26 +311,35 @@ syscall(void)
       init_sys_call_log();
   }
   num = curproc->tf->eax;
+  // get -e setting for syscall
+  int flagE = syscalls[SYS_strace_selprint](); // 0 = don't print, 1 = print
+
+  // -e not working yet
+  // check flagE value by printing
+  // cprintf("flagE of %s = %d\n", syscalls_strings[num], flagE);
+
   // Will also need to verify that syscalls_strings[num] is valid.
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) 
   {
     // Special trace line for exit and exec system calls
-    if (num == SYS_exit || num == SYS_exec)
+    if ((num == SYS_exit || num == SYS_exec))
     {
       if (X > 0) // avoid division by 0
+      // what does this do??
         strFormatter("TRACE: pid = %d | command_name = %s | syscall = %s\n", system_call_log[next_rc_sys_call_index++ % X],
                      curproc->pid, curproc->name, syscalls_strings[num], -1);
-      if (curproc->strace != 0)
+      if (curproc->strace != 0 || flagE == 1) // process flags here
         cprintf("TRACE: pid = %d | command_name = %s | syscall = %s\n", curproc->pid, curproc->name, syscalls_strings[num]);
     }
     curproc->tf->eax = syscalls[num]();
     // Standard trace line
+
     if (num != SYS_exit && num != SYS_exec)
     {
       if (X > 0) // avoid division by 0
         strFormatter("TRACE: pid = %d | command_name = %s | syscall = %s | return value = %d\n", system_call_log[next_rc_sys_call_index++ % X],
                      curproc->pid, curproc->name, syscalls_strings[num], curproc->tf->eax);
-      if (curproc->strace != 0)
+      if (curproc->strace != 0 || flagE == 1)
       {
         cprintf("TRACE: pid = %d | command_name = %s | syscall = %s | return value = %d\n",
                 curproc->pid, curproc->name, syscalls_strings[num], curproc->tf->eax);

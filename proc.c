@@ -6,6 +6,49 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
+#include "syscall.h"
+
+static char *syscalls_strings[] = {
+    [SYS_fork] = "fork",
+    [SYS_exit] = "exit",
+    [SYS_wait] = "wait",
+    [SYS_pipe] = "pipe",
+    [SYS_read] = "read",
+    [SYS_kill] = "kill",
+    [SYS_exec] = "exec",
+    [SYS_fstat] = "fstat",
+    [SYS_chdir] = "chdir",
+    [SYS_dup] = "dup",
+    [SYS_getpid] = "getpid",
+    [SYS_sbrk] = "sbrk",
+    [SYS_sleep] = "sleep",
+    [SYS_uptime] = "uptime",
+    [SYS_open] = "open",
+    [SYS_write] = "write",
+    [SYS_mknod] = "mknod",
+    [SYS_unlink] = "unlink",
+    [SYS_link] = "link",
+    [SYS_mkdir] = "mkdir",
+    [SYS_close] = "close",
+    [SYS_straceon] = "trace_on",
+    [SYS_straceoff] = "trace_off",
+    [SYS_check_strace] = "check_strace",
+    [SYS_set_proc_strace] = "set_proc_strace",
+    [SYS_strace_dump] = "strace_dump",
+    [SYS_strace_selon] = "strace_selon",
+    [SYS_strace_seloff] = "strace_seloff",
+    [SYS_strace_selprint] = "strace_selprint",
+    [SYS_strace_selstatus] = "strace_selstatus"
+};
+
+struct {
+  struct spinlock lock;
+  int printnext;
+  int printnow;
+  int calls[MAXSCALL];
+} straceseltable = {
+    .calls = {0}  // Zero all elements
+};
 
 struct {
   struct spinlock lock;
@@ -92,6 +135,12 @@ found:
   p->pid = nextpid++;
   p->nice = 3;
   p->strace = 0;
+  // p->straceselbool = 0;
+  // for (int i = 0; i < NUMSYSCALLS; i++)
+  // {
+  //   p->stracesel[i] = 1;
+  // }
+  
 
   release(&ptable.lock);
 
@@ -686,5 +735,99 @@ int check_strace()
 int set_proc_strace()
 {
   myproc()->strace = 1;
+  return 0;
+}
+int strace_selon(int argc, char* p)
+{
+  // get num by comparing strings
+  // cprintf("before changing : argv = %s\n", p);
+  int num = 0;
+  char* temp = p;
+  for (int i = 1; i < MAXSCALL; i++)
+  {
+    char *q = syscalls_strings[i];
+    while(*temp && *temp == *q)
+      temp++, q++;
+    int result = (uchar)*temp - (uchar)*q;
+    if(result == 0)
+    {
+      num = i;
+      break;
+    }
+    temp = p;
+  }
+
+  // argv to number
+  // cprintf("before changing : num = %d\n", num);
+  // cprintf("before changing : set = %d\n", straceseltable.set);
+  // cprintf("before changing : %s = %d\n", p, straceseltable.calls[num]);
+  acquire(&straceseltable.lock);
+  
+  straceseltable.printnext = 1;
+  straceseltable.calls[num] = 1;
+
+  release(&straceseltable.lock);
+  // cprintf("after changing : set = %d\n", straceseltable.set);
+  // cprintf("after changing : %s = %d\n", p, straceseltable.calls[num]);
+  return 0;
+}
+int strace_seloff(void)
+{
+  // acquire(&ptable.lock);
+  // struct proc *p = myproc();
+
+  //for (int i = 0; i < NUMSYSCALLS; i++) 
+    //p->stracesel[i] = 0;
+
+  // release(&ptable.lock);
+  return 0;
+}
+// find whether CALLING SYS CALL should print
+int strace_selprint()
+{
+  // check straceseltable[num]
+  struct proc *curproc = myproc();
+  int num = curproc->tf->eax;
+  // cprintf("[strace_selprint] num = %d\n", num);
+  // cprintf("[strace_selprint] .set = %d\n", straceseltable.set);
+  // cprintf("[strace_selprint] .calls[%d] = %d\n", num, straceseltable.calls[num]);
+
+  // not flag set
+  if(straceseltable.printnow == 0)
+  {
+    // cprintf("[strace_selprint] .set = %d\nreturn 0\n", straceseltable.set);
+    return 0;
+  }
+  // flag set, but not this call
+  else if(straceseltable.calls[num] == 1)
+  {
+    // cprintf("[strace_selprint] .calls[%d] = %d\nreturn 1\n", num, straceseltable.calls[num]);
+    return 1;
+  }
+
+  return 0;
+}
+// function used by sh.c 
+int strace_selstatus()
+{
+  // printnext == 0, printnext == 0, nothing to do
+  if(straceseltable.printnext == 0 && straceseltable.printnow == 0) 
+    return 0;
+    // cprintf("[strace_selstatus] straceseltable.printnext = %d && straceseltable.printnow = %d\n", straceseltable.printnext, straceseltable.printnow);
+  // printnext == 1, printnext == 0, means this call should be printed according to table
+  else if(straceseltable.printnext == 1 && straceseltable.printnow == 0)
+  {
+    // cprintf("[strace_selstatus] straceseltable.printnext = %d && straceseltable.printnow = %d\n", straceseltable.printnext, straceseltable.printnow);
+    straceseltable.printnext = 0; 
+    straceseltable.printnow = 1;
+  }
+  // printnext == 0, printnext == 1, means -e already executed
+  else if(straceseltable.printnext == 0 && straceseltable.printnow == 1)
+  {
+    // cprintf("[strace_selstatus] straceseltable.printnext = %d && straceseltable.printnow = %d\n", straceseltable.printnext, straceseltable.printnow);
+    straceseltable.printnow = 0;
+    for (int i = 0; i < MAXARG; i++)
+      straceseltable.calls[i] = 0;
+  }
   return 0;
 }

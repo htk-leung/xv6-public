@@ -6,6 +6,7 @@
 #include "memlayout.h"
 #include "mmu.h"
 #include "proc.h"
+#include "syscall.h"
 
 int
 sys_fork(void)
@@ -136,4 +137,29 @@ int sys_check_strace()
 int sys_set_proc_strace()
 {
   return set_proc_strace();
+}
+int sys_strace_selon(void)
+{
+  char *arg;
+  int argc;
+
+  if(argint(0, &argc) < 0)
+    return -1;
+
+  if(argptr(1, &arg, sizeof(int)) < 0)
+      return -1;
+
+  return strace_selon(argc, arg);
+}
+int sys_strace_seloff()
+{
+  return strace_seloff();
+}
+int sys_strace_selprint()
+{
+  return strace_selprint();
+}
+int sys_strace_selstatus()
+{
+  return strace_selstatus();
 }
