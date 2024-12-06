@@ -168,6 +168,28 @@ void strFormatter(char *fmt, char *result, int pid, char *cmd, char *syscall, in
   result[l] = '\0';
 }
 
+int strace_flag(int e, int s, int f, int ret)
+{
+  if(e == 0)
+    return 0;
+  // e == 1
+  if((s == 0 && f == 0) || (s == 1 && f == 1))
+    return 1;
+  else if(s == 1)
+  {
+    if(ret != -1)
+      return 1;
+    else return 0;
+  }
+  else if(f == 1)
+  {
+    if(ret == -1)
+      return 1;
+    else return 0;
+  }
+  return 0;
+}
+
 extern int sys_chdir(void);
 extern int sys_close(void);
 extern int sys_dup(void);
@@ -196,9 +218,10 @@ extern int sys_set_proc_strace(void);
 extern int sys_strace_dump(void);
 extern int sys_proc_strace_dump(void);
 extern int sys_strace_selon(void);
-extern int sys_strace_seloff(void);
 extern int sys_strace_selprint(void);
 extern int sys_strace_selstatus(void);
+extern int sys_strace_selflagS(void);
+extern int sys_strace_selflagF(void);
 
 static int (*syscalls[])(void) = {
     [SYS_fork] sys_fork,
@@ -229,9 +252,10 @@ static int (*syscalls[])(void) = {
     [SYS_strace_dump] sys_strace_dump,
     [SYS_proc_strace_dump] sys_proc_strace_dump,
     [SYS_strace_selon] sys_strace_selon,
-    [SYS_strace_seloff] sys_strace_seloff,
     [SYS_strace_selprint] = sys_strace_selprint,
-    [SYS_strace_selstatus] = sys_strace_selstatus
+    [SYS_strace_selstatus] = sys_strace_selstatus,
+    [SYS_strace_selflagS] = sys_strace_selflagS,
+    [SYS_strace_selflagF] = sys_strace_selflagF
 };
 
 static char *syscalls_strings[] = {
@@ -263,9 +287,10 @@ static char *syscalls_strings[] = {
     [SYS_strace_dump] = "strace_dump",
     [SYS_proc_strace_dump] = "proc_strace_dump",
     [SYS_strace_selon] = "strace_selon",
-    [SYS_strace_seloff] = "strace_seloff",
     [SYS_strace_selprint] = "strace_selprint",
-    [SYS_strace_selstatus] = "strace_selstatus"
+    [SYS_strace_selstatus] = "strace_selstatus",
+    [SYS_strace_selflagS] = "strace_selflagS",
+    [SYS_strace_selflagF] = "strace_selflagF"
 };
 
 // void init_sys_call_log()
@@ -318,10 +343,10 @@ syscall(void)
   }
   num = curproc->tf->eax;
 
-  // get -e setting for syscall
-  int flagE = syscalls[SYS_strace_selprint](); // 0 = don't print, 1 = print
-  // int flagS = syscalls[SYS_strace_selflag]
-
+  // get flags for syscall
+  int flagE = syscalls[SYS_strace_selprint](); // -e 0 = don't print, 1 = print
+  int flagS = syscalls[SYS_strace_selflagS](); // -s
+  int flagF = syscalls[SYS_strace_selflagF](); // -f
 
   // Will also need to verify that syscalls_strings[num] is valid.
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) 
@@ -336,12 +361,16 @@ syscall(void)
         cprintf("TRACE: pid = %d | command_name = %s | syscall = %s\n", curproc->pid, curproc->name, syscalls_strings[num]);
       safestrcpy(curproc->system_call_log[curproc->sys_call_index++ % X], system_call_log[(sys_call_index - 1) % X], MAX_TRACE_ENTRY_SIZE);
     }
+
     curproc->tf->eax = syscalls[num]();
     // Standard trace line
+    int retval = curproc->tf->eax;
+    int flagbool = strace_flag(flagE, flagS, flagF, retval);
+
     if (X > 0) // avoid division by 0
       strFormatter("TRACE: pid = %d | command_name = %s | syscall = %s | return value = %d\n", system_call_log[sys_call_index++ % X],
                      curproc->pid, curproc->name, syscalls_strings[num], curproc->tf->eax);
-    if (curproc->strace != 0 || flagE == 1)
+    if (curproc->strace != 0 || flagbool)
       cprintf("TRACE: pid = %d | command_name = %s | syscall = %s | return value = %d\n",
               curproc->pid, curproc->name, syscalls_strings[num], curproc->tf->eax);
     safestrcpy(curproc->system_call_log[curproc->sys_call_index++ % X], system_call_log[(sys_call_index - 1) % X], MAX_TRACE_ENTRY_SIZE);

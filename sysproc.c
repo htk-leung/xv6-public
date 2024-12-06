@@ -128,10 +128,6 @@ int sys_strace_selon(void)
 
   return strace_selon(argc, arg);
 }
-int sys_strace_seloff()
-{
-  return strace_seloff();
-}
 int sys_strace_selprint()
 {
   return strace_selprint();
@@ -139,4 +135,12 @@ int sys_strace_selprint()
 int sys_strace_selstatus()
 {
   return strace_selstatus();
+}
+int sys_strace_selflagS()
+{
+  return strace_selflagS();
+}
+int sys_strace_selflagF()
+{
+  return strace_selflagF();
 }

@@ -29,9 +29,10 @@ int set_proc_strace(void);
 int strace_dump(void);
 int proc_strace_dump(int);
 int strace_selon(int argc, char** argv);
-int strace_seloff(void);
 int strace_selprint(void);
 int strace_selstatus(void);
+int strace_selflagS(void);
+int strace_selflagF(void);
 
 
 // ulib.c

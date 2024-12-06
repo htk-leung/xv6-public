@@ -36,9 +36,10 @@ static char *syscalls_strings[] = {
     [SYS_set_proc_strace] = "set_proc_strace",
     [SYS_strace_dump] = "strace_dump",
     [SYS_strace_selon] = "strace_selon",
-    [SYS_strace_seloff] = "strace_seloff",
     [SYS_strace_selprint] = "strace_selprint",
-    [SYS_strace_selstatus] = "strace_selstatus"
+    [SYS_strace_selstatus] = "strace_selstatus",
+    [SYS_strace_selflagS] = "strace_selflagS",
+    [SYS_strace_selflagF] = "strace_selflagF"
 };
 
 struct {
@@ -706,27 +707,12 @@ int strace_selon(int argc, char** argv)
 
   return 0;
 }
-int strace_seloff(void)
-{
-  // acquire(&ptable.lock);
-  // struct proc *p = myproc();
-
-  //for (int i = 0; i < NUMSYSCALLS; i++) 
-    //p->stracesel[i] = 0;
-
-  // release(&ptable.lock);
-  return 0;
-}
 // find whether CALLING SYS CALL should print
 int strace_selprint()
 {
   // check straceseltable[num]
   struct proc *curproc = myproc();
   int num = curproc->tf->eax;
-  // cprintf("[strace_selprint] num = %d\n", num);
-  // cprintf("[strace_selprint] .set = %d\n", straceseltable.set);
-  // cprintf("[strace_selprint] .calls[%d] = %d\n", num, straceseltable.calls[num]);
-
   // not flag set
   if(straceseltable.printnow == 0)
   {
@@ -748,24 +734,37 @@ int strace_selstatus()
   // printnext == 0, printnext == 0, nothing to do
   if(straceseltable.printnext == 0 && straceseltable.printnow == 0) 
   {
-    cprintf("[strace_selstatus] straceseltable.printnext = %d && straceseltable.printnow = %d\n", straceseltable.printnext, straceseltable.printnow);
+    // cprintf("[strace_selstatus] straceseltable.printnext = %d && straceseltable.printnow = %d\n", straceseltable.printnext, straceseltable.printnow);
     return 0;
   }
   // printnext == 1, printnext == 0, means this call should be printed according to table
   else if(straceseltable.printnext == 1 && straceseltable.printnow == 0)
   {
-    cprintf("[strace_selstatus] straceseltable.printnext = %d && straceseltable.printnow = %d\n", straceseltable.printnext, straceseltable.printnow);
+    // cprintf("[strace_selstatus] straceseltable.printnext = %d && straceseltable.printnow = %d\n", straceseltable.printnext, straceseltable.printnow);
     straceseltable.printnext = 0; 
     straceseltable.printnow = 1;
-    cprintf("[strace_selstatus] straceseltable.printnext = %d && straceseltable.printnow = %d\n", straceseltable.printnext, straceseltable.printnow);
+    // cprintf("[strace_selstatus] straceseltable.printnext = %d && straceseltable.printnow = %d\n", straceseltable.printnext, straceseltable.printnow);
   }
   // printnext == 0, printnext == 1, means -e already executed
   else if(straceseltable.printnext == 0 && straceseltable.printnow == 1)
   {
-    cprintf("[strace_selstatus] straceseltable.printnext = %d && straceseltable.printnow = %d\n", straceseltable.printnext, straceseltable.printnow);
+    // cprintf("[strace_selstatus] straceseltable.printnext = %d && straceseltable.printnow = %d\n", straceseltable.printnext, straceseltable.printnow);
     straceseltable.printnow = 0;
     for (int i = 0; i < MAXARG; i++)
       straceseltable.calls[i] = 0;
   }
   return 0;
+}
+int strace_selflagS(void)
+{
+  if(straceseltable.flagS == 0) // not set
+    return 0;                   // print all
+  else                          // success only
+    return 1;         
+}
+int strace_selflagF(void)
+{
+  if(straceseltable.flagF == 0) // not set
+    return 0;                   // print all
+  else return 1;
 }
