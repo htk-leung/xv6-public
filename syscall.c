@@ -317,12 +317,11 @@ syscall(void)
       memset(system_call_log, 0, X);
   }
   num = curproc->tf->eax;
+
   // get -e setting for syscall
   int flagE = syscalls[SYS_strace_selprint](); // 0 = don't print, 1 = print
+  // int flagS = syscalls[SYS_strace_selflag]
 
-  // -e not working yet
-  // check flagE value by printing
-  // cprintf("flagE of %s = %d\n", syscalls_strings[num], flagE);
 
   // Will also need to verify that syscalls_strings[num] is valid.
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) 

@@ -757,6 +757,7 @@ int strace_selstatus()
     cprintf("[strace_selstatus] straceseltable.printnext = %d && straceseltable.printnow = %d\n", straceseltable.printnext, straceseltable.printnow);
     straceseltable.printnext = 0; 
     straceseltable.printnow = 1;
+    cprintf("[strace_selstatus] straceseltable.printnext = %d && straceseltable.printnow = %d\n", straceseltable.printnext, straceseltable.printnow);
   }
   // printnext == 0, printnext == 1, means -e already executed
   else if(straceseltable.printnext == 0 && straceseltable.printnow == 1)
