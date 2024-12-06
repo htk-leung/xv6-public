@@ -45,6 +45,8 @@ struct {
   struct spinlock lock;
   int printnext;
   int printnow;
+  int flagS;
+  int flagF;
   int calls[MAXSCALL];
 } straceseltable = {
     .calls = {0}  // Zero all elements
@@ -635,38 +637,73 @@ int proc_strace_dump(int pid)
   release(&ptable.lock);
   return -1;
 }
-int strace_selon(int argc, char* p)
+int strace_selon(int argc, char** argv)
 {
-  // get num by comparing strings
-  // cprintf("before changing : argv = %s\n", p);
-  int num = 0;
-  char* temp = p;
-  for (int i = 1; i < MAXSCALL; i++)
+  cprintf("argv[1] = %s\n", argv[1]);
+  // go through each variable
+  // items 1 ~ argc-2 process flag (argc)
+  // 
+  // set variables
+  int i = 1;
+  while(argv[i][0] == '-')
   {
-    char *q = syscalls_strings[i];
-    while(*temp && *temp == *q)
-      temp++, q++;
-    int result = (uchar)*temp - (uchar)*q;
-    if(result == 0)
+    // set print flag
+    if(argv[i][1] == 'e')
     {
-      num = i;
-      break;
+      cprintf("found -e\n");
+      acquire(&straceseltable.lock);
+      straceseltable.printnext = 1;
+      release(&straceseltable.lock);
+      cprintf("straceseltable.printnext = %d\n", straceseltable.printnext);
     }
-    temp = p;
+    // set flagS
+    else if(argv[i][1] == 's')
+    {
+      cprintf("found -s\n");
+      acquire(&straceseltable.lock);
+      straceseltable.flagS = 1;
+      release(&straceseltable.lock);
+      cprintf("straceseltable.flagS = %d\n", straceseltable.flagS);
+    }
+    // set flagF
+    else if(argv[i][1] == 'f')
+    {
+      cprintf("found -f\n");
+      acquire(&straceseltable.lock);
+      straceseltable.flagF = 1;
+      release(&straceseltable.lock);
+      cprintf("straceseltable.flagF = %d\n", straceseltable.flagF);
+    }
+    i++;
+  }
+  cprintf("i = %d\n", i);
+  
+  // set sys call flag
+  while(i < argc)
+  {
+    int num = 0;
+    char* temp;
+    for (int c = 1; c < MAXSCALL; c++) // c = system call number
+    {
+      temp = argv[i];
+      char *q = syscalls_strings[c]; // q = 1 system call
+      while(*temp && *temp == *q)
+        temp++, q++;
+      int result = (uchar)*temp - (uchar)*q;
+      if(result == 0)
+      {
+        num = c;
+        cprintf("c = %d\n", c);
+        break;
+      }
+    }
+    acquire(&straceseltable.lock);
+    straceseltable.calls[num] = 1;
+    release(&straceseltable.lock);
+    cprintf("straceseltable.calls[%d] = %d\n", num, straceseltable.calls[num]);
+    i++;
   }
 
-  // argv to number
-  // cprintf("before changing : num = %d\n", num);
-  // cprintf("before changing : set = %d\n", straceseltable.set);
-  // cprintf("before changing : %s = %d\n", p, straceseltable.calls[num]);
-  acquire(&straceseltable.lock);
-  
-  straceseltable.printnext = 1;
-  straceseltable.calls[num] = 1;
-
-  release(&straceseltable.lock);
-  // cprintf("after changing : set = %d\n", straceseltable.set);
-  // cprintf("after changing : %s = %d\n", p, straceseltable.calls[num]);
   return 0;
 }
 int strace_seloff(void)
@@ -710,19 +747,21 @@ int strace_selstatus()
 {
   // printnext == 0, printnext == 0, nothing to do
   if(straceseltable.printnext == 0 && straceseltable.printnow == 0) 
+  {
+    cprintf("[strace_selstatus] straceseltable.printnext = %d && straceseltable.printnow = %d\n", straceseltable.printnext, straceseltable.printnow);
     return 0;
-    // cprintf("[strace_selstatus] straceseltable.printnext = %d && straceseltable.printnow = %d\n", straceseltable.printnext, straceseltable.printnow);
+  }
   // printnext == 1, printnext == 0, means this call should be printed according to table
   else if(straceseltable.printnext == 1 && straceseltable.printnow == 0)
   {
-    // cprintf("[strace_selstatus] straceseltable.printnext = %d && straceseltable.printnow = %d\n", straceseltable.printnext, straceseltable.printnow);
+    cprintf("[strace_selstatus] straceseltable.printnext = %d && straceseltable.printnow = %d\n", straceseltable.printnext, straceseltable.printnow);
     straceseltable.printnext = 0; 
     straceseltable.printnow = 1;
   }
   // printnext == 0, printnext == 1, means -e already executed
   else if(straceseltable.printnext == 0 && straceseltable.printnow == 1)
   {
-    // cprintf("[strace_selstatus] straceseltable.printnext = %d && straceseltable.printnow = %d\n", straceseltable.printnext, straceseltable.printnow);
+    cprintf("[strace_selstatus] straceseltable.printnext = %d && straceseltable.printnow = %d\n", straceseltable.printnext, straceseltable.printnow);
     straceseltable.printnow = 0;
     for (int i = 0; i < MAXARG; i++)
       straceseltable.calls[i] = 0;

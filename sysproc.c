@@ -117,13 +117,13 @@ int sys_proc_strace_dump(void)
 }
 int sys_strace_selon(void)
 {
-  char *arg;
+  char **arg;
   int argc;
 
   if(argint(0, &argc) < 0)
     return -1;
 
-  if(argptr(1, &arg, sizeof(int)) < 0)
+  if(argptrptr(1, &arg, sizeof(int)) < 0)
       return -1;
 
   return strace_selon(argc, arg);
