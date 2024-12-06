@@ -22,18 +22,17 @@ int dup(int);
 int getpid(void);
 char* sbrk(int);
 int sleep(int);
-int changenice(int, int);
-int getnice(int);
-int printtable(void);
 int straceon(void);
 int straceoff(void);
 int check_strace(void); /*0 = off, 1 = on*/
 int set_proc_strace(void);
 int strace_dump(void);
+int proc_strace_dump(int);
 int strace_selon(int argc, char* argv);
 int strace_seloff(void);
 int strace_selprint(void);
 int strace_selstatus(void);
+
 
 // ulib.c
 int stat(const char*, struct stat*);

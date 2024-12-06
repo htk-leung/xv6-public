@@ -190,9 +190,9 @@ UPROGS=\
 	_wc\
 	_zombie\
 	_hello\
-	_test\
 	_strace\
-
+	_trace_children\
+	
 fs.img: mkfs README data.txt $(UPROGS)
 	./mkfs fs.img README data.txt $(UPROGS)
 	

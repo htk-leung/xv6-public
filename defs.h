@@ -121,14 +121,11 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
-int             changenice(int, int);
-int             getnice(int);
-int             printtable(void);
 int             straceon(void);
 int             straceoff(void);
 int             check_strace(void);         /*0 = off, 1 = on*/
 int             set_proc_strace(void);
-int             strace_selon(int argc, char* argv);
+int             proc_strace_dump(int);int             strace_selon(int argc, char* argv);
 int             strace_seloff(void);
 int             strace_selprint(void);
 int             strace_selstatus(void);
@@ -167,7 +164,7 @@ int             argstr(int, char**);
 int             fetchint(uint, int*);
 int             fetchstr(uint, char**);
 void            syscall(void);
-int strace_dump(void);
+int             strace_dump(void);
 
 // timer.c
 void            timerinit(void);

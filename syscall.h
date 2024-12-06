@@ -32,3 +32,4 @@
 #define SYS_strace_seloff   31
 #define SYS_strace_selprint 32
 #define SYS_strace_selstatus 33 // update MAXCALL in param.h
+#define SYS_proc_strace_dump 34
