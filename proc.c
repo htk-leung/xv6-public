@@ -640,44 +640,37 @@ int proc_strace_dump(int pid)
 }
 int strace_selon(int argc, char** argv)
 {
-  cprintf("argv[1] = %s\n", argv[1]);
-  // go through each variable
-  // items 1 ~ argc-2 process flag (argc)
-  // 
+  // cprintf("argv[1] = %s\n", argv[1]);
+
   // set variables
   int i = 1;
+  acquire(&straceseltable.lock);
   while(argv[i][0] == '-')
   {
     // set print flag
     if(argv[i][1] == 'e')
     {
-      cprintf("found -e\n");
-      acquire(&straceseltable.lock);
+      // cprintf("found -e\n");
       straceseltable.printnext = 1;
-      release(&straceseltable.lock);
-      cprintf("straceseltable.printnext = %d\n", straceseltable.printnext);
+      // cprintf("straceseltable.printnext = %d\n", straceseltable.printnext);
     }
     // set flagS
     else if(argv[i][1] == 's')
     {
-      cprintf("found -s\n");
-      acquire(&straceseltable.lock);
+      // cprintf("found -s\n");
       straceseltable.flagS = 1;
-      release(&straceseltable.lock);
-      cprintf("straceseltable.flagS = %d\n", straceseltable.flagS);
+      // cprintf("straceseltable.flagS = %d\n", straceseltable.flagS);
     }
     // set flagF
     else if(argv[i][1] == 'f')
     {
-      cprintf("found -f\n");
-      acquire(&straceseltable.lock);
+      // cprintf("found -f\n");
       straceseltable.flagF = 1;
-      release(&straceseltable.lock);
-      cprintf("straceseltable.flagF = %d\n", straceseltable.flagF);
+      // cprintf("straceseltable.flagF = %d\n", straceseltable.flagF);
     }
     i++;
   }
-  cprintf("i = %d\n", i);
+  // cprintf("i = %d\n", i);
   
   // set sys call flag
   while(i < argc)
@@ -694,14 +687,13 @@ int strace_selon(int argc, char** argv)
       if(result == 0)
       {
         num = c;
-        cprintf("c = %d\n", c);
+        // cprintf("c = %d\n", c);
         break;
       }
     }
-    acquire(&straceseltable.lock);
     straceseltable.calls[num] = 1;
     release(&straceseltable.lock);
-    cprintf("straceseltable.calls[%d] = %d\n", num, straceseltable.calls[num]);
+    // cprintf("straceseltable.calls[%d] = %d\n", num, straceseltable.calls[num]);
     i++;
   }
 
@@ -750,6 +742,8 @@ int strace_selstatus()
   {
     // cprintf("[strace_selstatus] straceseltable.printnext = %d && straceseltable.printnow = %d\n", straceseltable.printnext, straceseltable.printnow);
     straceseltable.printnow = 0;
+    straceseltable.flagS = 0;
+    straceseltable.flagF = 0;
     for (int i = 0; i < MAXARG; i++)
       straceseltable.calls[i] = 0;
   }
