@@ -701,7 +701,10 @@ int strace_selflagESel()
   acquire(&straceseltable.lock);
   int n = straceseltable.calls[num];
   release(&straceseltable.lock);
-  if(n == 1)
+
+  if(num >= 25)
+    return 0;
+  else if(n == 1)
   {
     // cprintf("[strace_selprint] .calls[%d] = %d\nreturn 1\n", num, straceseltable.calls[num]);
     return 1;

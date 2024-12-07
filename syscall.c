@@ -383,22 +383,18 @@ void syscall(void)
   // should be providing info for the provided command, not itself and the shell
   if ((curproc->name[6] == 0 && strncmp(curproc->name, "strace", 6) == 0) || (curproc->name[3] == 0 && strncmp(curproc->name, "sh", 3) == 0))
     logFlag = 0;
+
   num = curproc->tf->eax;
-
-  // get flags for syscall
+  int flagE = syscalls[SYS_strace_selflagE]();
   int now = syscalls[SYS_strace_selprint]();
-  int flagE = syscalls[SYS_strace_selflagE](); // -e 0 = not set, 1 = set
-  int flagS = syscalls[SYS_strace_selflagS](); // -s
-  int flagF = syscalls[SYS_strace_selflagF](); // -f
-  int sel = syscalls[SYS_strace_selflagESel]();
 
-  int flagbool = strace_flagexit(now, flagE, sel);
+  int notSH = strncmp("sh.c", syscalls_strings[num], 4);
 
   // Will also need to verify that syscalls_strings[num] is valid.
   if (num > 0 && num < NELEM(syscalls) && syscalls[num])
   {
     // Special trace line for exit and exec system calls
-    if ((num == SYS_exit || num == SYS_exec) && flagbool)
+    if ((num == SYS_exit || num == SYS_exec) && now)
     {
       if (X > 0 && logFlag) // avoid division by 0
         strFormatter("TRACE: pid = %d | command_name = %s | syscall = %s\n", system_call_log[sys_call_index++ % X],
@@ -408,6 +404,14 @@ void syscall(void)
     }
 
     curproc->tf->eax = syscalls[num]();
+    // get flags for syscall
+    
+     // -e 0 = not set, 1 = set
+    int flagS = syscalls[SYS_strace_selflagS](); // -s
+    int flagF = syscalls[SYS_strace_selflagF](); // -f
+    int sel = syscalls[SYS_strace_selflagESel]();
+    
+
     // Standard trace line
     int retval = curproc->tf->eax;
     int flagbool = strace_flag(now, flagE, flagS, flagF, retval, sel);
@@ -415,7 +419,7 @@ void syscall(void)
     if (X > 0 && logFlag) // avoid division by 0
       strFormatter("TRACE: pid = %d | command_name = %s | syscall = %s | return value = %d\n", system_call_log[sys_call_index++ % X],
                    curproc->pid, curproc->name, syscalls_strings[num], curproc->tf->eax);
-    if ((curproc->strace != 0 || flagbool) && logFlag)
+    if ((curproc->strace != 0 || flagbool) && logFlag && notSH)
       cprintf("TRACE: pid = %d | command_name = %s | syscall = %s | return value = %d\n",
               curproc->pid, curproc->name, syscalls_strings[num], curproc->tf->eax);
   }
