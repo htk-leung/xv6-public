@@ -140,9 +140,6 @@ found:
   p->state = EMBRYO;
   p->pid = nextpid++;
   p->strace = 0;
-  p->sys_call_index = 0;
-  p->sys_call_index = 0;
-  memset(p->system_call_log, 0, X);
 
   release(&ptable.lock);
 
@@ -264,6 +261,8 @@ fork(void)
   np->cwd = idup(curproc->cwd);
 
   safestrcpy(np->name, curproc->name, sizeof(curproc->name));
+
+  np->strace = curproc->strace;
 
   pid = np->pid;
 
@@ -609,37 +608,6 @@ int set_proc_strace()
 {
   myproc()->strace = 1;
   return 0;
-}
-int proc_strace_dump(int pid)
-{
-  int i;
-  struct proc *p;
-
-  acquire(&ptable.lock);
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-  {
-    if(p->pid == pid)
-    {
-      if (p->system_call_log[p->sys_call_index % 10][0] == 0)
-      {
-        for (i = 0; i < p->sys_call_index; i++)
-          cprintf("trace log %d = %s\n", i, p->system_call_log[i]);
-      }
-      else
-      {
-        // Print first section of circular array
-        for (i = p->sys_call_index % X; i < X; i++)
-          cprintf("trace log %d = %s\n", i, p->system_call_log[i]);
-        // Print second section of circular array
-        for (i = 0; i < p->sys_call_index % X; i++)
-          cprintf("trace log %d = %s\n", i, p->system_call_log[i]);
-      }
-      release(&ptable.lock);
-      return 0;
-    }
-  }
-  release(&ptable.lock);
-  return -1;
 }
 int strace_selon(int argc, char** argv)
 {
