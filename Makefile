@@ -192,9 +192,11 @@ UPROGS=\
 	_hello\
 	_strace\
 	_trace_children\
+	_test\
+	_test2\
 	
-fs.img: mkfs README data.txt $(UPROGS)
-	./mkfs fs.img README data.txt $(UPROGS)
+fs.img: mkfs README data.txt test.txt $(UPROGS)
+	./mkfs fs.img README data.txt test.txt $(UPROGS)
 	
 	
 -include *.d
