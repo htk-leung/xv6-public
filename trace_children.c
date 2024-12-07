@@ -11,7 +11,6 @@ int main()
         if((pids[i] = fork()) == 0)
         {
             printf(1, "Child %d\n", i);
-            proc_strace_dump(getpid());
             // //keep children busy
             // for(j = 0; j < COUNT_TO; j++)
             //     continue;

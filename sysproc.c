@@ -107,14 +107,6 @@ int sys_set_proc_strace(void)
 {
   return set_proc_strace();
 }
-int sys_proc_strace_dump(void)
-{
-  int pid;
-
-  if(argint(0, &pid) < 0)
-    return -1;
-  return proc_strace_dump(pid);
-}
 int sys_strace_selon(void)
 {
   char **arg;
