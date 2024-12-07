@@ -168,24 +168,66 @@ void strFormatter(char *fmt, char *result, int pid, char *cmd, char *syscall, in
   result[l] = '\0';
 }
 
-int strace_flag(int e, int s, int f, int ret)
+//  next    now         e       s       f       |       -1      >=0       filter
+//  V                                           |                
+//          V           V                       |       V       V       V      
+//          V                   V               |               V
+//          V                           V       |       V
+//          V           V       V               |               V       V
+//          V           V               V       |       V               V
+
+int strace_flag(int now, int e, int s, int f, int ret, int sel) // set or not set 
 {
-  if(e == 0)
+  if(now == 0)
     return 0;
-  // e == 1
-  if((s == 0 && f == 0) || (s == 1 && f == 1))
-    return 1;
-  else if(s == 1)
+  // now == 1
+  if(e == 0 && s == 0 && f == 0) // no flag passed
+  {
+    return 0;
+  }
+  else if(e == 1 && s == 0 && f == 0) // e set, only selected
+  {
+    return sel;
+  }
+  else if(e == 0 && s == 1 && f == 0) // e not set, all success prints
   {
     if(ret != -1)
       return 1;
     else return 0;
   }
-  else if(f == 1)
+  else if(e == 0 && s == 0 && f == 1) // e not set, all fail prints
   {
     if(ret == -1)
       return 1;
     else return 0;
+  }
+  else if(e == 1 && s == 1 && f == 0) // e set, sel success prints
+  {
+    if(ret != -1) 
+      return sel;
+    else return 0;
+  }
+  else if(e == 1 && s == 0 && f == 1) // e set, sel fail prints
+  {
+    if(ret == -1)
+      return sel;
+    else return 0;
+  }
+  return 0;
+}
+
+int strace_flagexit(int now, int e, int sel) // set or not set 
+{
+  if(now == 0)
+    return 0;
+  // now == 1
+  if(e == 0) // e not set
+  {
+    return 0;
+  }
+  else if(e == 1) // e set, only selected
+  {
+    return sel;
   }
   return 0;
 }
@@ -220,6 +262,8 @@ extern int sys_proc_strace_dump(void);
 extern int sys_strace_selon(void);
 extern int sys_strace_selprint(void);
 extern int sys_strace_selstatus(void);
+extern int sys_strace_selflagE(void);
+extern int sys_strace_selflagESel(void);
 extern int sys_strace_selflagS(void);
 extern int sys_strace_selflagF(void);
 
@@ -254,6 +298,8 @@ static int (*syscalls[])(void) = {
     [SYS_strace_selon] sys_strace_selon,
     [SYS_strace_selprint] = sys_strace_selprint,
     [SYS_strace_selstatus] = sys_strace_selstatus,
+    [SYS_strace_selflagE] = sys_strace_selflagE,
+    [SYS_strace_selflagESel] = sys_strace_selflagESel,
     [SYS_strace_selflagS] = sys_strace_selflagS,
     [SYS_strace_selflagF] = sys_strace_selflagF
 };
@@ -289,6 +335,8 @@ static char *syscalls_strings[] = {
     [SYS_strace_selon] = "strace_selon",
     [SYS_strace_selprint] = "strace_selprint",
     [SYS_strace_selstatus] = "strace_selstatus",
+    [SYS_strace_selflagE] = "strace_selflagE",
+    [SYS_strace_selflagESel] = "strace_selflagESel",
     [SYS_strace_selflagS] = "strace_selflagS",
     [SYS_strace_selflagF] = "strace_selflagF"
 };
@@ -344,15 +392,19 @@ syscall(void)
   num = curproc->tf->eax;
 
   // get flags for syscall
-  int flagE = syscalls[SYS_strace_selprint](); // -e 0 = don't print, 1 = print
+  int now = syscalls[SYS_strace_selprint]();
+  int flagE = syscalls[SYS_strace_selflagE](); // -e 0 = not set, 1 = set
   int flagS = syscalls[SYS_strace_selflagS](); // -s
   int flagF = syscalls[SYS_strace_selflagF](); // -f
+  int sel = syscalls[SYS_strace_selflagESel]();
+
+  int flagbool = strace_flagexit(now, flagE, sel);
 
   // Will also need to verify that syscalls_strings[num] is valid.
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) 
   {
     // Special trace line for exit and exec system calls
-    if ((num == SYS_exit || num == SYS_exec))
+    if ((num == SYS_exit || num == SYS_exec) && flagbool)
     {
       if (X > 0) // avoid division by 0
         strFormatter("TRACE: pid = %d | command_name = %s | syscall = %s\n", system_call_log[sys_call_index++ % X],
@@ -365,11 +417,11 @@ syscall(void)
     curproc->tf->eax = syscalls[num]();
     // Standard trace line
     int retval = curproc->tf->eax;
-    int flagbool = strace_flag(flagE, flagS, flagF, retval);
+    int flagbool = strace_flag(now, flagE, flagS, flagF, retval, sel);
 
     if (X > 0) // avoid division by 0
       strFormatter("TRACE: pid = %d | command_name = %s | syscall = %s | return value = %d\n", system_call_log[sys_call_index++ % X],
-                     curproc->pid, curproc->name, syscalls_strings[num], curproc->tf->eax);
+                    curproc->pid, curproc->name, syscalls_strings[num], curproc->tf->eax);
     if (curproc->strace != 0 || flagbool)
       cprintf("TRACE: pid = %d | command_name = %s | syscall = %s | return value = %d\n",
               curproc->pid, curproc->name, syscalls_strings[num], curproc->tf->eax);

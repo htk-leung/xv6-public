@@ -129,6 +129,8 @@ int             proc_strace_dump(int);
 int             strace_selon(int argc, char** argv);
 int             strace_selprint(void);
 int             strace_selstatus(void);
+int             strace_selflagE(void);
+int             strace_selflagESel(void);
 int             strace_selflagS(void);
 int             strace_selflagF(void);
 

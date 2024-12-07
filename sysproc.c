@@ -136,6 +136,14 @@ int sys_strace_selstatus()
 {
   return strace_selstatus();
 }
+int sys_strace_selflagE()
+{
+  return strace_selflagE();
+}
+int sys_strace_selflagESel()
+{
+  return strace_selflagESel();
+}
 int sys_strace_selflagS()
 {
   return strace_selflagS();

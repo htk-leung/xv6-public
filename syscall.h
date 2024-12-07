@@ -32,5 +32,7 @@
 #define SYS_strace_selprint 31
 #define SYS_strace_selstatus 32 // update MAXCALL in param.h
 #define SYS_proc_strace_dump 33
-#define SYS_strace_selflagS 34
-#define SYS_strace_selflagF 35
+#define SYS_strace_selflagE 34
+#define SYS_strace_selflagS 35
+#define SYS_strace_selflagF 36
+#define SYS_strace_selflagESel 37

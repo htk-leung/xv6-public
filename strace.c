@@ -24,16 +24,16 @@ int main(int argc, char *argv[])
             strace_dump();
     }
 
-    if (argc > 2)
+    if (argc >= 2)
     {
         // flags
-        int flagE = 0;
+        int flag = 0;
         for (int i = 1; i < argc; i++)
         {
-            if(strcmp(argv[i], "-e") == 0)
-                flagE = 1;
+            if(argv[i][0] == '-')
+                flag = 1;
         }
-        if (flagE)
+        if (flag)
         {
             strace_selon(argc, argv);
         }
@@ -53,3 +53,5 @@ int main(int argc, char *argv[])
     }
     exit();
 }
+
+

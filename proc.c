@@ -38,6 +38,8 @@ static char *syscalls_strings[] = {
     [SYS_strace_selon] = "strace_selon",
     [SYS_strace_selprint] = "strace_selprint",
     [SYS_strace_selstatus] = "strace_selstatus",
+    [SYS_strace_selflagE] = "strace_selflagE",
+    [SYS_strace_selflagESel] = "strace_selflagESel",
     [SYS_strace_selflagS] = "strace_selflagS",
     [SYS_strace_selflagF] = "strace_selflagF"
 };
@@ -46,6 +48,7 @@ struct {
   struct spinlock lock;
   int printnext;
   int printnow;
+  int flagE;
   int flagS;
   int flagF;
   int calls[MAXSCALL];
@@ -640,19 +643,24 @@ int proc_strace_dump(int pid)
 }
 int strace_selon(int argc, char** argv)
 {
-  // cprintf("argv[1] = %s\n", argv[1]);
+  // for (int i = 1; i < argc; i++)
+  // {
+  //   cprintf("argv[%d] = %s\n", i, argv[i]);
+  // }
+  
 
   // set variables
   int i = 1;
   acquire(&straceseltable.lock);
+  straceseltable.printnext = 1;
   while(argv[i][0] == '-')
   {
     // set print flag
     if(argv[i][1] == 'e')
     {
       // cprintf("found -e\n");
-      straceseltable.printnext = 1;
-      // cprintf("straceseltable.printnext = %d\n", straceseltable.printnext);
+      straceseltable.flagE = 1;
+      // cprintf("straceseltable.flagE = %d\n", straceseltable.flagE);
     }
     // set flagS
     else if(argv[i][1] == 's')
@@ -670,9 +678,12 @@ int strace_selon(int argc, char** argv)
     }
     i++;
   }
+  release(&straceseltable.lock);
+
   // cprintf("i = %d\n", i);
   
   // set sys call flag
+  acquire(&straceseltable.lock);
   while(i < argc)
   {
     int num = 0;
@@ -692,73 +703,105 @@ int strace_selon(int argc, char** argv)
       }
     }
     straceseltable.calls[num] = 1;
-    release(&straceseltable.lock);
     // cprintf("straceseltable.calls[%d] = %d\n", num, straceseltable.calls[num]);
     i++;
   }
+  release(&straceseltable.lock);
 
   return 0;
 }
 // find whether CALLING SYS CALL should print
 int strace_selprint()
 {
-  // check straceseltable[num]
-  struct proc *curproc = myproc();
-  int num = curproc->tf->eax;
-  // not flag set
-  if(straceseltable.printnow == 0)
+  // don't print in general
+  acquire(&straceseltable.lock);
+  int num = straceseltable.printnow;
+  release(&straceseltable.lock);
+  if(num == 0)
   {
     // cprintf("[strace_selprint] .set = %d\nreturn 0\n", straceseltable.set);
     return 0;
   }
-  // flag set, but not this call
-  else if(straceseltable.calls[num] == 1)
+  return 1;
+}
+int strace_selflagESel()
+{
+  // check straceseltable[num]
+  struct proc *curproc = myproc();
+  int num = curproc->tf->eax;
+  // don't print in general
+  acquire(&straceseltable.lock);
+  int n = straceseltable.calls[num];
+  release(&straceseltable.lock);
+  if(n == 1)
   {
     // cprintf("[strace_selprint] .calls[%d] = %d\nreturn 1\n", num, straceseltable.calls[num]);
     return 1;
   }
-
   return 0;
 }
 // function used by sh.c 
 int strace_selstatus()
 {
+  acquire(&straceseltable.lock);
+  int next = straceseltable.printnext;
+  int now = straceseltable.printnow;
+  release(&straceseltable.lock);
   // printnext == 0, printnext == 0, nothing to do
-  if(straceseltable.printnext == 0 && straceseltable.printnow == 0) 
+  if(next == 0 && now == 0) 
   {
     // cprintf("[strace_selstatus] straceseltable.printnext = %d && straceseltable.printnow = %d\n", straceseltable.printnext, straceseltable.printnow);
+    // cprintf("[strace_selstatus] curproc()->strace = %d", myproc()->strace);
     return 0;
   }
   // printnext == 1, printnext == 0, means this call should be printed according to table
-  else if(straceseltable.printnext == 1 && straceseltable.printnow == 0)
+  else if(next == 1 && now == 0)
   {
     // cprintf("[strace_selstatus] straceseltable.printnext = %d && straceseltable.printnow = %d\n", straceseltable.printnext, straceseltable.printnow);
+    // cprintf("[strace_selstatus] curproc()->strace = %d", myproc()->strace);
+    acquire(&straceseltable.lock);
     straceseltable.printnext = 0; 
     straceseltable.printnow = 1;
+    release(&straceseltable.lock);
     // cprintf("[strace_selstatus] straceseltable.printnext = %d && straceseltable.printnow = %d\n", straceseltable.printnext, straceseltable.printnow);
+    // cprintf("[strace_selstatus] curproc()->strace = %d", myproc()->strace);
   }
   // printnext == 0, printnext == 1, means -e already executed
-  else if(straceseltable.printnext == 0 && straceseltable.printnow == 1)
+  else if(next == 0 && now == 1)
   {
     // cprintf("[strace_selstatus] straceseltable.printnext = %d && straceseltable.printnow = %d\n", straceseltable.printnext, straceseltable.printnow);
+    // cprintf("[strace_selstatus] curproc()->strace = %d", myproc()->strace);
+    acquire(&straceseltable.lock);
     straceseltable.printnow = 0;
+    straceseltable.flagE = 0;
     straceseltable.flagS = 0;
     straceseltable.flagF = 0;
     for (int i = 0; i < MAXARG; i++)
       straceseltable.calls[i] = 0;
+    release(&straceseltable.lock);
+    // cprintf("[strace_selstatus] straceseltable.printnext = %d && straceseltable.printnow = %d\n", straceseltable.printnext, straceseltable.printnow);
+    // cprintf("[strace_selstatus] curproc()->strace = %d", myproc()->strace);
   }
   return 0;
 }
+int strace_selflagE(void)
+{
+  acquire(&straceseltable.lock);
+  int e = straceseltable.flagE;
+  release(&straceseltable.lock);
+  return e;       
+}
 int strace_selflagS(void)
 {
-  if(straceseltable.flagS == 0) // not set
-    return 0;                   // print all
-  else                          // success only
-    return 1;         
+  acquire(&straceseltable.lock);
+  int s = straceseltable.flagS;
+  release(&straceseltable.lock);
+  return s;        
 }
 int strace_selflagF(void)
 {
-  if(straceseltable.flagF == 0) // not set
-    return 0;                   // print all
-  else return 1;
+  acquire(&straceseltable.lock);
+  int f = straceseltable.flagF;
+  release(&straceseltable.lock);
+  return f; 
 }
