@@ -262,6 +262,8 @@ fork(void)
 
   safestrcpy(np->name, curproc->name, sizeof(curproc->name));
 
+  np->strace = curproc->strace;
+
   pid = np->pid;
 
   acquire(&ptable.lock);
